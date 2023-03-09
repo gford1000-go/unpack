@@ -46,6 +46,15 @@ type CountryFact struct{}
 func (f CountryFact) New() Unpackable {
 	return new(Country)
 }
+
+func UnmarshalCountries(b []byte)  []*Country {
+	items, _ := Unpack(b, CountryFact{})
+	countries := make([]*Country, len(items))
+	for i, item := range items {
+		countries[i] = item.(*Country)
+	}
+	return countries
+}
 ```
 
 ## How?
