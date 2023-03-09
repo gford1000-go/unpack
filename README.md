@@ -1,3 +1,5 @@
+[![Go Reference](https://pkg.go.dev/badge/github.com/gford1000-go/unpack.svg)](https://pkg.go.dev/github.com/gford1000-go/unpack)
+
 unpack
 ======
 
