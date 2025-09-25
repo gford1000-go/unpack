@@ -1,68 +1,61 @@
 [![Go Reference](https://pkg.go.dev/badge/github.com/gford1000-go/unpack.svg)](https://pkg.go.dev/github.com/gford1000-go/unpack)
 
-unpack
-======
+unpack | Simplified JSON decoding of a map of named objects
+===========================================================
 
-unpack provides a convenient mechanism to read a JSON config file comprising an single object with attributes representing
-unique values of the same structure:
+Often we come across JSON data that is presented as a map of named objects, e.g.:
 
 ```json
 {
-	"countries": {
-		"United Kingdom": { 
-			"capital": "London",
-			"population": {
-				"2023": 66000000
-			}
-		},
-		"United States": {
-			"capital": "Washington",
-			"population": {
-				"2023": 314000000
-			}
-		}
-	}
+  "countries": {
+    "United Kingdom": { 
+      "capital": "London",
+      "population": {
+        "2023": 66000000
+      }
+    },
+    "United States": {
+      "capital": "Washington",
+      "population": {
+        "2023": 314000000
+      }
+    }
+  }
 }
 ```
 
-## Use
+The `unpack` package simplifies parsing of such data, including ensuring the name (key) of the data objects is captured during the parsing.
 
-Two `struct` types are required:
+Use
+===
 
-- A receiving `struct` that includes the attributes and associated `json` tags necessary to parse the data successfully - i.e. as required to use `json.Unmarshal`.  In addition, this struct must have a pointer type implementation of `SetName` so that the struct implements the interface `Unpackable`.
-- A factory `struct` that can manufacture pointer instances of the receiving `struct` 
+Define a receiving `struct` type that includes the attributes and associated `json` tags necessary to parse the data successfully - i.e. as required to use `json.Unmarshal`.  
+
+This type must implement the `Unpackable` interface, which requires two functions, `GetName` and `SetName`.
 
 ```go
 type Country struct {
-	Name string
-	Capital string `json:"capital"`
-	Population map[string]int `json:"population"`
+    Name string
+    Capital string `json:"capital"`
+    Population map[string]int `json:"population"`
 }
 
 func (c *Country) SetName(name string) {
-	c.Name = name
+    c.Name = name
 }
 
-type CountryFact struct{}
-
-func (f CountryFact) New() Unpackable {
-	return new(Country)
+func (c *Country) GetName() string {
+    return c.Name
 }
 
-func UnmarshalCountries(b []byte)  []*Country {
-	items, _ := Unpack(b, CountryFact{})
-	countries := make([]*Country, len(items))
-	for i, item := range items {
-		countries[i] = item.(*Country)
-	}
-	return countries
+func printCountries(b []byte) {
+    countries, _ := Unmarshal[Country](b)
+    for _, country := range country {
+        fmt.Println(country.Name, country.Capital, country.Population[country.Capital])
+    }
 }
 ```
 
-## How?
+Additionally, slices of `Unpackable` can be encoded to JSON using the `Marshal` function.  Providing a name to `Marshal` will create a byte slice that can be decoded using `Unmarshal`; providing an empty string as name will create an anonymous map (note this is not currently decodable by this package).
 
-The command line is all you need.
-
-```
-go get github.com/gford1000-go/unpack
-```
+See examples for more details.

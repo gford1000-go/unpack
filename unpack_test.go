@@ -1,23 +1,22 @@
 package unpack
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 )
 
-type tt struct {
+type myTestType struct {
 	n string
 }
 
-func (t *tt) SetName(name string) {
+func (t *myTestType) SetName(name string) {
 	t.n = name
 }
 
-type ttf struct{}
-
-func (f ttf) New() Unpackable {
-	return new(tt)
+func (t *myTestType) GetName() string {
+	return t.n
 }
 
 func TestUnpackAll(t *testing.T) {
@@ -87,7 +86,7 @@ func TestUnpackAll(t *testing.T) {
 
 	for i, test := range tests {
 
-		u, err := Unpack([]byte(test.json), ttf{})
+		u, err := Unmarshal[myTestType]([]byte(test.json))
 		if err != nil {
 			if test.parseable {
 				t.Fatalf("Unexpected parse failure for test %d: %v", i, err)
@@ -99,8 +98,87 @@ func TestUnpackAll(t *testing.T) {
 		assert.Equal(t, len(test.names), len(u))
 
 		for i, uu := range u {
-			v := uu.(*tt)
-			assert.Equal(t, test.names[i], v.n)
+			assert.Equal(t, test.names[i], uu.n)
 		}
 	}
+}
+
+type myCountryDetails struct {
+	Name       string
+	Capital    string         `json:"capital"`
+	Population map[string]int `json:"population"`
+}
+
+func (c *myCountryDetails) SetName(name string) {
+	c.Name = name
+}
+
+func (c *myCountryDetails) GetName() string {
+	return c.Name
+}
+
+func ExampleUnmarshal() {
+
+	b := []byte(`{"countries":{"UK":{"capital":"London","population":{"London":12000000}},"US":{"capital":"Washington DC","population":{"Washington DC":9500000}}}}`)
+
+	countries, _ := Unmarshal[myCountryDetails](b)
+	for _, country := range countries {
+		fmt.Println(country.Name, country.Capital, country.Population[country.Capital])
+	}
+
+	// Output:
+	// UK London 12000000
+	// US Washington DC 9500000
+}
+
+func ExampleMarshal() {
+
+	countries := []*myCountryDetails{
+		{
+			Name:    "UK",
+			Capital: "London",
+			Population: map[string]int{
+				"London": 10000000,
+			},
+		},
+		{
+			Name:    "US",
+			Capital: "Washington DC",
+			Population: map[string]int{
+				"Washington DC": 95000000,
+			},
+		},
+	}
+
+	b, _ := Marshal("countries", countries)
+	fmt.Println(string(b))
+
+	// Output:
+	// {"countries":{"UK":{"Name":"UK","capital":"London","population":{"London":10000000}},"US":{"Name":"US","capital":"Washington DC","population":{"Washington DC":95000000}}}}
+}
+
+func ExampleMarshal_noOuterMap() {
+
+	countries := []*myCountryDetails{
+		{
+			Name:    "UK",
+			Capital: "London",
+			Population: map[string]int{
+				"London": 10000000,
+			},
+		},
+		{
+			Name:    "US",
+			Capital: "Washington DC",
+			Population: map[string]int{
+				"Washington DC": 95000000,
+			},
+		},
+	}
+
+	b, _ := Marshal("", countries)
+	fmt.Println(string(b))
+
+	// Output:
+	// {"UK":{"Name":"UK","capital":"London","population":{"London":10000000}},"US":{"Name":"US","capital":"Washington DC","population":{"Washington DC":95000000}}}
 }

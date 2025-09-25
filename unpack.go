@@ -8,18 +8,15 @@ import (
 
 // Unpackable instances provide the ability to assign their name
 // using the attribute name of the enclosing JSON object
-type Unpackable interface {
+type Unpackable[T any] interface {
+	*T
 	SetName(name string)
+	GetName() string
 }
 
-// UnpackableFactory creates instances of Unpackable
-type UnpackableFactory interface {
-	New() Unpackable
-}
-
-// Unpack returns the slice of Unpackable instances within a JSON objects
+// Unmarshal returns the slice of Unpackable instances within a JSON objects
 // The Unpackable must be a pointer type implementation of the interface.
-func Unpack[F UnpackableFactory](b []byte, fact F) ([]Unpackable, error) {
+func Unmarshal[T any, PT Unpackable[T]](b []byte) ([]PT, error) {
 
 	/*
 		The JSON structure should have been of the form:
@@ -49,7 +46,11 @@ func Unpack[F UnpackableFactory](b []byte, fact F) ([]Unpackable, error) {
 		return nil, errors.New("incorrectly formed JSON")
 	}
 
-	var ret = []Unpackable{}
+	newT := func() PT {
+		return new(T)
+	}
+
+	var ret = []PT{}
 
 	for _, items := range m {
 
@@ -69,7 +70,7 @@ func Unpack[F UnpackableFactory](b []byte, fact F) ([]Unpackable, error) {
 
 			// ... but easiest way to obtain the byte slice
 			// to parse into actual structure
-			r := fact.New()
+			r := newT()
 			if err := json.Unmarshal(b, r); err != nil {
 				return nil, err
 			}
@@ -80,4 +81,22 @@ func Unpack[F UnpackableFactory](b []byte, fact F) ([]Unpackable, error) {
 	}
 
 	return ret, nil
+}
+
+// Marshal encodes the slice of Unpackable instances to JSON
+func Marshal[T any, PT Unpackable[T]](name string, data []PT) ([]byte, error) {
+
+	m := map[string]PT{}
+
+	for _, d := range data {
+		m[d.GetName()] = d
+	}
+
+	if len(name) > 0 {
+		mm := map[string]map[string]PT{}
+		mm[name] = m
+		return json.Marshal(mm)
+	}
+
+	return json.Marshal(m)
 }
