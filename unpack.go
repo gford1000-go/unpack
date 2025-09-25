@@ -3,6 +3,7 @@ package unpack
 import (
 	"encoding/json"
 	"errors"
+	"sort"
 )
 
 // Unpackable instances provide the ability to assign their name
@@ -51,7 +52,16 @@ func Unpack[F UnpackableFactory](b []byte, fact F) ([]Unpackable, error) {
 	var ret = []Unpackable{}
 
 	for _, items := range m {
-		for name, item := range items {
+
+		// Sorting on the keys generates a deterministic return ordering
+		sortedKeys := sort.StringSlice{}
+		for k := range items {
+			sortedKeys = append(sortedKeys, k)
+		}
+		sort.Sort(sortedKeys)
+
+		for _, name := range sortedKeys {
+			item := items[name]
 			b, err := json.Marshal(item) // Not ideal obvs ...
 			if err != nil {
 				return nil, err
