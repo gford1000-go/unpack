@@ -7,6 +7,10 @@ import (
 	"fmt"
 	"slices"
 	"sort"
+	"time"
+
+	"go.opentelemetry.io/otel/codes"
+	"go.opentelemetry.io/otel/trace"
 )
 
 // Unpackable instances provide the ability to assign their name
@@ -94,7 +98,21 @@ var ErrDataNameNotFound = errors.New("data name is not found")
 
 // Unmarshal returns the slice of Unpackable instances within a JSON objects
 // The Unpackable must be a pointer type implementation of the interface.
-func unmarshal[M, T any, PT Unpackable[T]](ctx context.Context, metaName, dataName string, b []byte, opts ...func(*Options[T, PT])) (*StructuredData[M, T, PT], error) {
+func unmarshal[M, T any, PT Unpackable[T]](ctx context.Context, metaName, dataName string, b []byte, opts ...func(*Options[T, PT])) (sd *StructuredData[M, T, PT], err error) {
+
+	curSpan := trace.SpanFromContext(ctx)
+
+	defer func() {
+		if r := recover(); r != nil {
+			err = fmt.Errorf("unexpected error: %v", r)
+			curSpan.AddEvent("unpack.unmarshal error", trace.WithTimestamp(time.Now().UTC()))
+			curSpan.SetStatus(codes.Error, err.Error())
+		} else {
+			curSpan.AddEvent("unpack.unmarshal ended", trace.WithTimestamp(time.Now().UTC()))
+		}
+	}()
+
+	curSpan.AddEvent("unpack.unmarshal started", trace.WithTimestamp(time.Now().UTC()))
 
 	o := Options[T, PT]{
 		structType: namedItemMap,
@@ -212,7 +230,21 @@ func MarshalWithName[T any, PT Unpackable[T]](ctx context.Context, name string, 
 	return marshal(ctx, name, data, append(opts, withStructType[T, PT](namedItemMap))...)
 }
 
-func marshal[T any, PT Unpackable[T]](ctx context.Context, name string, data []PT, opts ...func(*Options[T, PT])) ([]byte, error) {
+func marshal[T any, PT Unpackable[T]](ctx context.Context, name string, data []PT, opts ...func(*Options[T, PT])) (b []byte, err error) {
+
+	curSpan := trace.SpanFromContext(ctx)
+
+	defer func() {
+		if r := recover(); r != nil {
+			err = fmt.Errorf("unexpected error: %v", r)
+			curSpan.AddEvent("unpack.marshal error", trace.WithTimestamp(time.Now().UTC()))
+			curSpan.SetStatus(codes.Error, err.Error())
+		} else {
+			curSpan.AddEvent("unpack.marshal ended", trace.WithTimestamp(time.Now().UTC()))
+		}
+	}()
+
+	curSpan.AddEvent("unpack.marshal started", trace.WithTimestamp(time.Now().UTC()))
 
 	o := Options[T, PT]{
 		structType: namedItemMap,

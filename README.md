@@ -83,3 +83,10 @@ The `Marshal` and `MarshalWithName` functions will JSON encode the provided obje
 an anonymous or named map of maps respectively, providing full round trip.
 
 See examples for more details.
+
+Monitoring
+==========
+
+Open-Telemetry spans will be created for marshaling and unmarshaling if the context has an active trace.
+
+Span names are `unpack.marshal` and `unpack.unmarshal` repectively.

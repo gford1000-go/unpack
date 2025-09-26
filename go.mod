@@ -4,7 +4,9 @@ go 1.24.4
 
 require (
 	github.com/asaskevich/govalidator v0.0.0-20230301143203-a9d515a09cc2
-	github.com/stretchr/testify v1.8.2
+	github.com/stretchr/testify v1.11.1
+	go.opentelemetry.io/otel v1.38.0
+	go.opentelemetry.io/otel/trace v1.38.0
 )
 
 require (
