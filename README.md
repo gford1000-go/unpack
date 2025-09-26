@@ -3,7 +3,7 @@
 unpack | Simplified JSON decoding of a map of named objects
 ===========================================================
 
-Often we come across JSON data that is presented as a map of named objects, e.g.:
+Often we come across JSON data that is presented either as a named map of named objects, e.g.:
 
 ```json
 {
@@ -24,10 +24,29 @@ Often we come across JSON data that is presented as a map of named objects, e.g.
 }
 ```
 
+or an "anonymous" map, containing just the named objects, e.g. :
+
+```json
+{
+  "United Kingdom": { 
+    "capital": "London",
+    "population": {
+      "2023": 66000000
+    }
+  },
+  "United States": {
+    "capital": "Washington",
+    "population": {
+      "2023": 314000000
+    }
+  }
+}
+```
+
 The `unpack` package simplifies parsing of such data, including ensuring the name (key) of the data objects is captured during the parsing.
 
-Use
-===
+Usage
+=====
 
 Define a receiving `struct` type that includes the attributes and associated `json` tags necessary to parse the data successfully - i.e. as required to use `json.Unmarshal`.  
 
@@ -48,14 +67,17 @@ func (c *Country) GetName() string {
     return c.Name
 }
 
-func printCountries(b []byte) {
-    countries, _ := Unmarshal[Country](b)
-    for _, country := range country {
-        fmt.Println(country.Name, country.Capital, country.Population[country.Capital])
-    }
+func main(b []byte) {
+  b := []byte(`{"UK":{"capital":"London","population":{"London":12000000}},"US":{"capital":"Washington DC","population":{"Washington DC":9500000}}}`)
+
+  countries, _ := unpack.Unmarshal[myCountryDetails](b)
+  for _, country := range countries {
+    fmt.Println(country.Name, country.Capital, country.Population[country.Capital])
+  }
 }
 ```
 
-Additionally, slices of `Unpackable` can be encoded to JSON using the `Marshal` function.  Providing a name to `Marshal` will create a byte slice that can be decoded using `Unmarshal`; providing an empty string as name will create an anonymous map (note this is not currently decodable by this package).
+The `Marshal` and `MarshalWithName` functions will JSON encode the provided objects, as
+an anonymous or named map of maps respectively, providing full round trip.
 
 See examples for more details.

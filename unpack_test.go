@@ -1,6 +1,7 @@
 package unpack
 
 import (
+	"bytes"
 	"fmt"
 	"testing"
 
@@ -86,7 +87,7 @@ func TestUnpackAll(t *testing.T) {
 
 	for i, test := range tests {
 
-		u, err := Unmarshal[myTestType]([]byte(test.json))
+		u, err := UnmarshalWithName[myTestType]("a", []byte(test.json))
 		if err != nil {
 			if test.parseable {
 				t.Fatalf("Unexpected parse failure for test %d: %v", i, err)
@@ -119,7 +120,7 @@ func (c *myCountryDetails) GetName() string {
 
 func ExampleUnmarshal() {
 
-	b := []byte(`{"countries":{"UK":{"capital":"London","population":{"London":12000000}},"US":{"capital":"Washington DC","population":{"Washington DC":9500000}}}}`)
+	b := []byte(`{"UK":{"capital":"London","population":{"London":12000000}},"US":{"capital":"Washington DC","population":{"Washington DC":9500000}}}`)
 
 	countries, _ := Unmarshal[myCountryDetails](b)
 	for _, country := range countries {
@@ -129,6 +130,32 @@ func ExampleUnmarshal() {
 	// Output:
 	// UK London 12000000
 	// US Washington DC 9500000
+}
+
+func ExampleMarshalWithName() {
+
+	countries := []*myCountryDetails{
+		{
+			Name:    "UK",
+			Capital: "London",
+			Population: map[string]int{
+				"London": 10000000,
+			},
+		},
+		{
+			Name:    "US",
+			Capital: "Washington DC",
+			Population: map[string]int{
+				"Washington DC": 95000000,
+			},
+		},
+	}
+
+	b, _ := MarshalWithName("countries", countries)
+	fmt.Println(string(b))
+
+	// Output:
+	// {"countries":{"UK":{"Name":"UK","capital":"London","population":{"London":10000000}},"US":{"Name":"US","capital":"Washington DC","population":{"Washington DC":95000000}}}}
 }
 
 func ExampleMarshal() {
@@ -150,35 +177,48 @@ func ExampleMarshal() {
 		},
 	}
 
-	b, _ := Marshal("countries", countries)
-	fmt.Println(string(b))
-
-	// Output:
-	// {"countries":{"UK":{"Name":"UK","capital":"London","population":{"London":10000000}},"US":{"Name":"US","capital":"Washington DC","population":{"Washington DC":95000000}}}}
-}
-
-func ExampleMarshal_noOuterMap() {
-
-	countries := []*myCountryDetails{
-		{
-			Name:    "UK",
-			Capital: "London",
-			Population: map[string]int{
-				"London": 10000000,
-			},
-		},
-		{
-			Name:    "US",
-			Capital: "Washington DC",
-			Population: map[string]int{
-				"Washington DC": 95000000,
-			},
-		},
-	}
-
-	b, _ := Marshal("", countries)
+	b, _ := Marshal(countries)
 	fmt.Println(string(b))
 
 	// Output:
 	// {"UK":{"Name":"UK","capital":"London","population":{"London":10000000}},"US":{"Name":"US","capital":"Washington DC","population":{"Washington DC":95000000}}}
+}
+
+func TestMarshal(t *testing.T) {
+
+	data := []byte(`{"UK":{"Name":"UK","capital":"London","population":{"London":10000000}},"US":{"Name":"US","capital":"Washington DC","population":{"Washington DC":95000000}}}`)
+
+	objs, err := Unmarshal[myCountryDetails](data)
+	if err != nil {
+		t.Fatalf("unexpected Unmarshal error: %v", err)
+	}
+
+	data1, err := Marshal(objs)
+	if err != nil {
+		t.Fatalf("unexpected Marshal error: %v", err)
+	}
+
+	if !bytes.Equal(data, data1) {
+		t.Fatalf("mismatch: expected: %s, got: %s", string(data), string(data1))
+	}
+}
+
+func TestMarshalWithName(t *testing.T) {
+
+	name := "countries"
+	data := []byte(fmt.Sprintf(`{"%s":{"UK":{"Name":"UK","capital":"London","population":{"London":10000000}},"US":{"Name":"US","capital":"Washington DC","population":{"Washington DC":95000000}}}}`, name))
+
+	objs, err := UnmarshalWithName[myCountryDetails](name, data)
+	if err != nil {
+		t.Fatalf("unexpected Unmarshal error: %v", err)
+	}
+
+	data1, err := MarshalWithName(name, objs)
+	if err != nil {
+		t.Fatalf("unexpected Marshal error: %v", err)
+	}
+
+	if !bytes.Equal(data, data1) {
+		t.Fatalf("mismatch: expected: %s, got: %s", string(data), string(data1))
+	}
 }
