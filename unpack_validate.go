@@ -1,13 +1,17 @@
 package unpack
 
-import valid "github.com/asaskevich/govalidator"
+import (
+	"context"
+
+	valid "github.com/asaskevich/govalidator"
+)
 
 // UnpackAndValidate returns a validated set of Unpackables, where the
 // validation to be performed is defined in the tag of each attribute
 // see: https://pkg.go.dev/github.com/asaskevich/govalidator?utm_source=godoc
 func UnpackAndValidate[T any, PT Unpackable[T]](b []byte) ([]PT, error) {
 
-	unpackables, err := Unmarshal[T, PT](b)
+	unpackables, err := Unmarshal[T, PT](context.Background(), b)
 	if err != nil {
 		return nil, err
 	}

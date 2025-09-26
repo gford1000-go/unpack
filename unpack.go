@@ -1,6 +1,7 @@
 package unpack
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -21,7 +22,7 @@ var ErrNoNameSpecified = errors.New("name must be provided")
 
 // UnmarshalWithName will decode the inner named objects into instances of T,
 // from the object specified by the name in the outer map
-func UnmarshalWithName[T any, PT Unpackable[T]](name string, b []byte, opts ...func(*Options[T, PT])) ([]PT, error) {
+func UnmarshalWithName[T any, PT Unpackable[T]](ctx context.Context, name string, b []byte, opts ...func(*Options[T, PT])) ([]PT, error) {
 	/*
 		The JSON structure is a map of maps, of the form:
 
@@ -44,7 +45,7 @@ func UnmarshalWithName[T any, PT Unpackable[T]](name string, b []byte, opts ...f
 	if len(name) == 0 {
 		return nil, ErrNoNameSpecified
 	}
-	sm, err := unmarshal[any, T, PT]("", name, b, append(opts, withStructType[T, PT](namedItemMap))...)
+	sm, err := unmarshal[any, T, PT](ctx, "", name, b, append(opts, withStructType[T, PT](namedItemMap))...)
 	if err != nil {
 		return nil, err
 	}
@@ -52,7 +53,7 @@ func UnmarshalWithName[T any, PT Unpackable[T]](name string, b []byte, opts ...f
 }
 
 // UnmarshalWithName will decode the map into named objects into instances of T
-func Unmarshal[T any, PT Unpackable[T]](b []byte, opts ...func(*Options[T, PT])) ([]PT, error) {
+func Unmarshal[T any, PT Unpackable[T]](ctx context.Context, b []byte, opts ...func(*Options[T, PT])) ([]PT, error) {
 	/*
 		The JSON structure is a simple map, i.e. of the form:
 
@@ -70,7 +71,7 @@ func Unmarshal[T any, PT Unpackable[T]](b []byte, opts ...func(*Options[T, PT]))
 		Exit if the structure is not well formed
 	*/
 
-	sd, err := unmarshal[any, T, PT]("", "", b, append(opts, withStructType[T, PT](anonymousItemMap))...)
+	sd, err := unmarshal[any, T, PT](ctx, "", "", b, append(opts, withStructType[T, PT](anonymousItemMap))...)
 	if err != nil {
 		return nil, err
 	}
@@ -85,12 +86,15 @@ func newM[M any]() *M {
 	return new(M)
 }
 
+// ErrMetaNameNotFound is returned if the specified meta data name is not in the supplied []byte slice
 var ErrMetaNameNotFound = errors.New("meta name is not found")
+
+// ErrDataNameNotFound is returned if the specified data name is not in the supplied []byte slice
 var ErrDataNameNotFound = errors.New("data name is not found")
 
 // Unmarshal returns the slice of Unpackable instances within a JSON objects
 // The Unpackable must be a pointer type implementation of the interface.
-func unmarshal[M, T any, PT Unpackable[T]](metaName, dataName string, b []byte, opts ...func(*Options[T, PT])) (*StructuredData[M, T, PT], error) {
+func unmarshal[M, T any, PT Unpackable[T]](ctx context.Context, metaName, dataName string, b []byte, opts ...func(*Options[T, PT])) (*StructuredData[M, T, PT], error) {
 
 	o := Options[T, PT]{
 		structType: namedItemMap,
@@ -196,19 +200,19 @@ func unmarshal[M, T any, PT Unpackable[T]](metaName, dataName string, b []byte, 
 }
 
 // Marshal encodes the slice of Unpackable instances to a JSON anonymous map
-func Marshal[T any, PT Unpackable[T]](data []PT, opts ...func(*Options[T, PT])) ([]byte, error) {
-	return marshal("", data, append(opts, withStructType[T, PT](anonymousItemMap))...)
+func Marshal[T any, PT Unpackable[T]](ctx context.Context, data []PT, opts ...func(*Options[T, PT])) ([]byte, error) {
+	return marshal(ctx, "", data, append(opts, withStructType[T, PT](anonymousItemMap))...)
 }
 
 // MarshalWithName encodes the slice of Unpackable instances to a JSON named map
-func MarshalWithName[T any, PT Unpackable[T]](name string, data []PT, opts ...func(*Options[T, PT])) ([]byte, error) {
+func MarshalWithName[T any, PT Unpackable[T]](ctx context.Context, name string, data []PT, opts ...func(*Options[T, PT])) ([]byte, error) {
 	if len(name) == 0 {
 		return nil, ErrNoNameSpecified
 	}
-	return marshal(name, data, append(opts, withStructType[T, PT](namedItemMap))...)
+	return marshal(ctx, name, data, append(opts, withStructType[T, PT](namedItemMap))...)
 }
 
-func marshal[T any, PT Unpackable[T]](name string, data []PT, opts ...func(*Options[T, PT])) ([]byte, error) {
+func marshal[T any, PT Unpackable[T]](ctx context.Context, name string, data []PT, opts ...func(*Options[T, PT])) ([]byte, error) {
 
 	o := Options[T, PT]{
 		structType: namedItemMap,
@@ -245,6 +249,6 @@ type StructuredData[M, T any, PT Unpackable[T]] struct {
 
 // UnmarshalStructuredData decodes a JSON map of maps into a StructuredData instance, using the
 // names to identify the metadata and data objects
-func UnmarshalStructuredData[M, T any, PT Unpackable[T]](metaName, dataName string, b []byte, opts ...func(*Options[T, PT])) (*StructuredData[M, T, PT], error) {
-	return unmarshal[M](metaName, dataName, b, append(opts, withStructType[T, PT](structuredMap))...)
+func UnmarshalStructuredData[M, T any, PT Unpackable[T]](ctx context.Context, metaName, dataName string, b []byte, opts ...func(*Options[T, PT])) (*StructuredData[M, T, PT], error) {
+	return unmarshal[M](ctx, metaName, dataName, b, append(opts, withStructType[T, PT](structuredMap))...)
 }

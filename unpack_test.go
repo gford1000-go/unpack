@@ -2,6 +2,7 @@ package unpack
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -89,7 +90,7 @@ func TestUnpackAll(t *testing.T) {
 
 	for i, test := range tests {
 
-		u, err := UnmarshalWithName[myTestType]("a", []byte(test.json))
+		u, err := UnmarshalWithName[myTestType](context.Background(), "a", []byte(test.json))
 		if err != nil {
 			if test.parseable {
 				t.Fatalf("Unexpected parse failure for test %d: %v", i, err)
@@ -124,7 +125,7 @@ func ExampleUnmarshal() {
 
 	b := []byte(`{"UK":{"capital":"London","population":{"London":12000000}},"US":{"capital":"Washington DC","population":{"Washington DC":9500000}}}`)
 
-	countries, _ := Unmarshal[myCountryDetails](b)
+	countries, _ := Unmarshal[myCountryDetails](context.Background(), b)
 	for _, country := range countries {
 		fmt.Println(country.Name, country.Capital, country.Population[country.Capital])
 	}
@@ -153,7 +154,7 @@ func ExampleMarshalWithName() {
 		},
 	}
 
-	b, _ := MarshalWithName("countries", countries)
+	b, _ := MarshalWithName(context.Background(), "countries", countries)
 	fmt.Println(string(b))
 
 	// Output:
@@ -179,7 +180,7 @@ func ExampleMarshal() {
 		},
 	}
 
-	b, _ := Marshal(countries)
+	b, _ := Marshal(context.Background(), countries)
 	fmt.Println(string(b))
 
 	// Output:
@@ -190,12 +191,12 @@ func TestMarshal(t *testing.T) {
 
 	data := []byte(`{"UK":{"Name":"UK","capital":"London","population":{"London":10000000}},"US":{"Name":"US","capital":"Washington DC","population":{"Washington DC":95000000}}}`)
 
-	objs, err := Unmarshal[myCountryDetails](data)
+	objs, err := Unmarshal[myCountryDetails](context.Background(), data)
 	if err != nil {
 		t.Fatalf("unexpected Unmarshal error: %v", err)
 	}
 
-	data1, err := Marshal(objs)
+	data1, err := Marshal(context.Background(), objs)
 	if err != nil {
 		t.Fatalf("unexpected Marshal error: %v", err)
 	}
@@ -210,12 +211,12 @@ func TestMarshalWithName(t *testing.T) {
 	name := "countries"
 	data := []byte(fmt.Sprintf(`{"%s":{"UK":{"Name":"UK","capital":"London","population":{"London":10000000}},"US":{"Name":"US","capital":"Washington DC","population":{"Washington DC":95000000}}}}`, name))
 
-	objs, err := UnmarshalWithName[myCountryDetails](name, data)
+	objs, err := UnmarshalWithName[myCountryDetails](context.Background(), name, data)
 	if err != nil {
 		t.Fatalf("unexpected Unmarshal error: %v", err)
 	}
 
-	data1, err := MarshalWithName(name, objs)
+	data1, err := MarshalWithName(context.Background(), name, objs)
 	if err != nil {
 		t.Fatalf("unexpected Marshal error: %v", err)
 	}
@@ -234,7 +235,7 @@ func BenchmarkUnmarshalWithName(b *testing.B) {
 	b.ResetTimer()
 
 	for b.Loop() {
-		objs, err := UnmarshalWithName[myCountryDetails](name, data)
+		objs, err := UnmarshalWithName[myCountryDetails](context.Background(), name, data)
 		if err != nil {
 			b.Fatalf("unexpected UnmarshalWithName error: %v", err)
 		}
@@ -242,7 +243,7 @@ func BenchmarkUnmarshalWithName(b *testing.B) {
 			b.Fatalf("unexpected unmarshal result")
 		}
 
-		data1, err := MarshalWithName(name, objs)
+		data1, err := MarshalWithName(context.Background(), name, objs)
 		if err != nil {
 			b.Fatalf("unexpected MarshalWithName error: %v", err)
 		}
@@ -260,7 +261,7 @@ func BenchmarkUnmarshal(b *testing.B) {
 	b.ResetTimer()
 
 	for b.Loop() {
-		objs, err := Unmarshal[myCountryDetails](data)
+		objs, err := Unmarshal[myCountryDetails](context.Background(), data)
 		if err != nil {
 			b.Fatalf("unexpected Unmarshal error: %v", err)
 		}
@@ -268,7 +269,7 @@ func BenchmarkUnmarshal(b *testing.B) {
 			b.Fatalf("unexpected unmarshal result")
 		}
 
-		data1, err := Marshal(objs)
+		data1, err := Marshal(context.Background(), objs)
 		if err != nil {
 			b.Fatalf("unexpected Marshal error: %v", err)
 		}
@@ -321,7 +322,7 @@ func BenchmarkUnmarshalStructuredData(b *testing.B) {
 	b.ResetTimer()
 
 	for b.Loop() {
-		sd, err := UnmarshalStructuredData[stockHistoryMeta, stockHistoryElement](metaName, dataName, data)
+		sd, err := UnmarshalStructuredData[stockHistoryMeta, stockHistoryElement](context.Background(), metaName, dataName, data)
 		if err != nil {
 			b.Fatalf("unexpected UnmarshalWithName error: %v", err)
 		}
@@ -358,7 +359,7 @@ func BenchmarkUnmarshalStructuredData_descending(b *testing.B) {
 	b.ResetTimer()
 
 	for b.Loop() {
-		sd, err := UnmarshalStructuredData[stockHistoryMeta](metaName, dataName, data, WithOrdering[stockHistoryElement](Descending))
+		sd, err := UnmarshalStructuredData[stockHistoryMeta](context.Background(), metaName, dataName, data, WithOrdering[stockHistoryElement](Descending))
 		if err != nil {
 			b.Fatalf("unexpected UnmarshalWithName error: %v", err)
 		}

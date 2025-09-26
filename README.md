@@ -68,9 +68,11 @@ func (c *Country) GetName() string {
 }
 
 func main(b []byte) {
+  ctx := context.Background()
+
   b := []byte(`{"UK":{"capital":"London","population":{"London":12000000}},"US":{"capital":"Washington DC","population":{"Washington DC":9500000}}}`)
 
-  countries, _ := unpack.Unmarshal[myCountryDetails](b)
+  countries, _ := unpack.Unmarshal[myCountryDetails](ctx, b)
   for _, country := range countries {
     fmt.Println(country.Name, country.Capital, country.Population[country.Capital])
   }
