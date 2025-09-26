@@ -43,7 +43,11 @@ func UnmarshalWithName[T any, PT Unpackable[T]](name string, b []byte, opts ...f
 	if len(name) == 0 {
 		return nil, ErrNoNameSpecified
 	}
-	return unmarshal(name, b, append(opts, withStructType[T, PT](namedItemMap))...)
+	sm, err := unmarshal[any, T, PT]("", name, b, append(opts, withStructType[T, PT](namedItemMap))...)
+	if err != nil {
+		return nil, err
+	}
+	return sm.Data, nil
 }
 
 // UnmarshalWithName will decode the map into named objects into instances of T
@@ -65,16 +69,27 @@ func Unmarshal[T any, PT Unpackable[T]](b []byte, opts ...func(*Options[T, PT]))
 		Exit if the structure is not well formed
 	*/
 
-	return unmarshal("", b, append(opts, withStructType[T, PT](anonymousItemMap))...)
+	sd, err := unmarshal[any, T, PT]("", "", b, append(opts, withStructType[T, PT](anonymousItemMap))...)
+	if err != nil {
+		return nil, err
+	}
+	return sd.Data, nil
 }
 
 func newT[T any, PT Unpackable[T]]() PT {
 	return new(T)
 }
 
+func newM[M any]() *M {
+	return new(M)
+}
+
+var ErrMetaNameNotFound = errors.New("meta name is not found")
+var ErrDataNameNotFound = errors.New("data name is not found")
+
 // Unmarshal returns the slice of Unpackable instances within a JSON objects
 // The Unpackable must be a pointer type implementation of the interface.
-func unmarshal[T any, PT Unpackable[T]](name string, b []byte, opts ...func(*Options[T, PT])) ([]PT, error) {
+func unmarshal[M, T any, PT Unpackable[T]](metaName, dataName string, b []byte, opts ...func(*Options[T, PT])) (*StructuredData[M, T, PT], error) {
 
 	o := Options[T, PT]{
 		structType: namedItemMap,
@@ -84,16 +99,17 @@ func unmarshal[T any, PT Unpackable[T]](name string, b []byte, opts ...func(*Opt
 		opt(&o)
 	}
 
-	var m map[string]any = nil
+	var mMeta map[string]any = nil
+	var mData map[string]any = nil
 	var mm map[string]map[string]any = nil
 
 	defer func() {
 		switch o.structType {
 		case anonymousItemMap:
-			if m != nil {
-				releaseMap(m)
+			if mData != nil {
+				releaseMap(mData)
 			}
-		case namedItemMap:
+		case namedItemMap, structuredMap:
 			if mm != nil {
 				releaseMap2Map(mm)
 			}
@@ -106,46 +122,72 @@ func unmarshal[T any, PT Unpackable[T]](name string, b []byte, opts ...func(*Opt
 		if err := json.Unmarshal(b, &mm); err != nil {
 			return nil, err
 		}
-		if nm, ok := mm[name]; !ok {
-
+		if nm, ok := mm[dataName]; !ok {
+			return nil, ErrDataNameNotFound
 		} else {
-			m = nm
+			mData = nm
+		}
+	case structuredMap:
+		mm = acquireMap2Map()
+		if err := json.Unmarshal(b, &mm); err != nil {
+			return nil, err
+		}
+		if nm, ok := mm[metaName]; !ok {
+			return nil, ErrMetaNameNotFound
+		} else {
+			mMeta = nm
+		}
+		if nm, ok := mm[dataName]; !ok {
+			return nil, ErrDataNameNotFound
+		} else {
+			mData = nm
 		}
 	case anonymousItemMap:
-		m = acquireMap()
-		if err := json.Unmarshal(b, &m); err != nil {
+		mData = acquireMap()
+		if err := json.Unmarshal(b, &mData); err != nil {
+			return nil, err
+		}
+	}
+
+	var meta *M = nil
+	if mMeta != nil {
+		meta = newM[M]()
+		if err := mapToStruct(mMeta, meta); err != nil {
 			return nil, err
 		}
 	}
 
 	// Sorting on the keys generates a deterministic return ordering
-	sortedKeys := make(sort.StringSlice, 0, len(m))
-	for k := range m {
+	sortedKeys := make(sort.StringSlice, 0, len(mData))
+	for k := range mData {
 		sortedKeys = append(sortedKeys, k)
 	}
 	sort.Sort(sortedKeys)
 
-	var ret = make([]PT, 0, len(m))
+	var ptData = make([]PT, 0, len(mData))
 
 	for _, name := range sortedKeys {
 
 		r := o.NewFn()
-		if err := mapToStruct(m[name].(map[string]any), r); err != nil {
+		if err := mapToStruct(mData[name].(map[string]any), r); err != nil {
 
 			// mapToStruct could have edge case failures, in which case
 			// use json roundtrip to try to decode
 			r = o.NewFn()
-			if err := roundTripToStruct(m[name], r); err != nil {
+			if err := roundTripToStruct(mData[name], r); err != nil {
 				return nil, err
 			}
 		}
 
 		r.SetName(name)
 
-		ret = append(ret, r)
+		ptData = append(ptData, r)
 	}
 
-	return ret, nil
+	return &StructuredData[M, T, PT]{
+		Meta: meta,
+		Data: ptData,
+	}, nil
 }
 
 // Marshal encodes the slice of Unpackable instances to a JSON anonymous map
@@ -187,4 +229,15 @@ func marshal[T any, PT Unpackable[T]](name string, data []PT, opts ...func(*Opti
 	default:
 		panic(fmt.Sprintf("unsupported value of Options.structType provided (%d)", o.structType))
 	}
+}
+
+// StructuredData is used to decode JSON where there are two elements in an outer map, one
+// of which is metadata and the other contains a map of actual data
+type StructuredData[M, T any, PT Unpackable[T]] struct {
+	Meta *M
+	Data []PT
+}
+
+func UnmarshalStructuredData[M, T any, PT Unpackable[T]](metaName, dataName string, b []byte, opts ...func(*Options[T, PT])) (*StructuredData[M, T, PT], error) {
+	return unmarshal[M](metaName, dataName, b, append(opts, withStructType[T, PT](structuredMap))...)
 }

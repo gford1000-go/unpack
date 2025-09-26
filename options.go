@@ -10,6 +10,7 @@ const (
 	unknownStructType structType = iota
 	namedItemMap
 	anonymousItemMap
+	structuredMap
 	invalidJSONStructType
 )
 

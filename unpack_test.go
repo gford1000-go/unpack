@@ -278,7 +278,15 @@ func BenchmarkUnmarshal(b *testing.B) {
 	}
 }
 
-type ibmHistoryElement struct {
+type stockHistoryMeta struct {
+	Information   string `json:"1. Information"`
+	Symbol        string `json:"2. Symbol"`
+	LastRefreshed string `json:"3. Last Refreshed"`
+	OutputSize    string `json:"4. Output Size"`
+	TimeZone      string `json:"5. Time Zone"`
+}
+
+type stockHistoryElement struct {
 	Date             string
 	Open             string `json:"1. open"`
 	High             string `json:"2. high"`
@@ -290,15 +298,15 @@ type ibmHistoryElement struct {
 	SplitCoefficient string `json:"8. split coefficient"`
 }
 
-func (i *ibmHistoryElement) SetName(name string) {
+func (i *stockHistoryElement) SetName(name string) {
 	i.Date = name
 }
 
-func (i *ibmHistoryElement) GetName() string {
+func (i *stockHistoryElement) GetName() string {
 	return i.Date
 }
 
-func BenchmarkUnmarshalWithName_usingIbmHistoryData(b *testing.B) {
+func BenchmarkUnmarshalStructuredData(b *testing.B) {
 
 	jsonPath := filepath.Join("example_data", "ibm_history.json")
 	data, err := os.ReadFile(jsonPath)
@@ -306,18 +314,31 @@ func BenchmarkUnmarshalWithName_usingIbmHistoryData(b *testing.B) {
 		b.Fatalf("Failed to read JSON file: %v", err)
 	}
 
-	name := "Time Series (Daily)"
+	metaName := "Meta Data"
+	dataName := "Time Series (Daily)"
 
 	b.ReportAllocs()
 	b.ResetTimer()
 
 	for b.Loop() {
-		objs, err := UnmarshalWithName[ibmHistoryElement](name, data)
+		sd, err := UnmarshalStructuredData[stockHistoryMeta, stockHistoryElement](metaName, dataName, data)
 		if err != nil {
 			b.Fatalf("unexpected UnmarshalWithName error: %v", err)
 		}
-		if len(objs) == 0 {
+		if sd.Meta == nil {
+			b.Fatalf("unexpectedly received no metadata")
+		}
+		if len(sd.Data) == 0 {
 			b.Fatalf("unexpected unmarshal result")
+		}
+		if sd.Meta.Symbol != "IBM" {
+			b.Fatalf("mismatch in Symbol")
+		}
+		if sd.Data[0].Date != "1999-11-01" {
+			b.Fatalf("mismatch in expected first data element: %s", sd.Data[0].Date)
+		}
+		if sd.Data[len(sd.Data)-1].Date != "2025-08-19" {
+			b.Fatalf("mismatch in expected last data element: %s", sd.Data[len(sd.Data)-1].Date)
 		}
 	}
 }
