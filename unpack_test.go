@@ -3,6 +3,8 @@ package unpack
 import (
 	"bytes"
 	"fmt"
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -234,11 +236,88 @@ func BenchmarkUnmarshalWithName(b *testing.B) {
 	for b.Loop() {
 		objs, err := UnmarshalWithName[myCountryDetails](name, data)
 		if err != nil {
+			b.Fatalf("unexpected UnmarshalWithName error: %v", err)
+		}
+		if len(objs) != 2 {
+			b.Fatalf("unexpected unmarshal result")
+		}
+
+		data1, err := MarshalWithName(name, objs)
+		if err != nil {
+			b.Fatalf("unexpected MarshalWithName error: %v", err)
+		}
+		if !bytes.Equal(data, data1) {
+			b.Fatal("mismatch in roundtrip")
+		}
+	}
+}
+
+func BenchmarkUnmarshal(b *testing.B) {
+
+	data := []byte(`{"UK":{"Name":"UK","capital":"London","population":{"London":10000000}},"US":{"Name":"US","capital":"Washington DC","population":{"Washington DC":95000000}}}`)
+
+	b.ReportAllocs()
+	b.ResetTimer()
+
+	for b.Loop() {
+		objs, err := Unmarshal[myCountryDetails](data)
+		if err != nil {
 			b.Fatalf("unexpected Unmarshal error: %v", err)
 		}
 		if len(objs) != 2 {
 			b.Fatalf("unexpected unmarshal result")
 		}
+
+		data1, err := Marshal(objs)
+		if err != nil {
+			b.Fatalf("unexpected Marshal error: %v", err)
+		}
+		if !bytes.Equal(data, data1) {
+			b.Fatal("mismatch in roundtrip")
+		}
+	}
+}
+
+type ibmHistoryElement struct {
+	Date             string
+	Open             string `json:"1. open"`
+	High             string `json:"2. high"`
+	Low              string `json:"3. low"`
+	Close            string `json:"4. close"`
+	AdjustedClose    string `json:"5. adjusted close"`
+	Volume           string `json:"6. volume"`
+	DividendAmount   string `json:"7. dividend amount"`
+	SplitCoefficient string `json:"8. split coefficient"`
+}
+
+func (i *ibmHistoryElement) SetName(name string) {
+	i.Date = name
+}
+
+func (i *ibmHistoryElement) GetName() string {
+	return i.Date
+}
+
+func BenchmarkUnmarshalWithName_usingIbmHistoryData(b *testing.B) {
+
+	jsonPath := filepath.Join("example_data", "ibm_history.json")
+	data, err := os.ReadFile(jsonPath)
+	if err != nil {
+		b.Fatalf("Failed to read JSON file: %v", err)
 	}
 
+	name := "Time Series (Daily)"
+
+	b.ReportAllocs()
+	b.ResetTimer()
+
+	for b.Loop() {
+		objs, err := UnmarshalWithName[ibmHistoryElement](name, data)
+		if err != nil {
+			b.Fatalf("unexpected UnmarshalWithName error: %v", err)
+		}
+		if len(objs) == 0 {
+			b.Fatalf("unexpected unmarshal result")
+		}
+	}
 }

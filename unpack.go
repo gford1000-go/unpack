@@ -84,11 +84,25 @@ func unmarshal[T any, PT Unpackable[T]](name string, b []byte, opts ...func(*Opt
 		opt(&o)
 	}
 
-	var m = map[string]any{}
+	var m map[string]any = nil
+	var mm map[string]map[string]any = nil
+
+	defer func() {
+		switch o.structType {
+		case anonymousItemMap:
+			if m != nil {
+				releaseMap(m)
+			}
+		case namedItemMap:
+			if mm != nil {
+				releaseMap2Map(mm)
+			}
+		}
+	}()
 
 	switch o.structType {
 	case namedItemMap:
-		mm := map[string]map[string]any{}
+		mm = acquireMap2Map()
 		if err := json.Unmarshal(b, &mm); err != nil {
 			return nil, err
 		}
@@ -98,19 +112,20 @@ func unmarshal[T any, PT Unpackable[T]](name string, b []byte, opts ...func(*Opt
 			m = nm
 		}
 	case anonymousItemMap:
+		m = acquireMap()
 		if err := json.Unmarshal(b, &m); err != nil {
 			return nil, err
 		}
 	}
 
 	// Sorting on the keys generates a deterministic return ordering
-	sortedKeys := sort.StringSlice{}
+	sortedKeys := make(sort.StringSlice, 0, len(m))
 	for k := range m {
 		sortedKeys = append(sortedKeys, k)
 	}
 	sort.Sort(sortedKeys)
 
-	var ret = []PT{}
+	var ret = make([]PT, 0, len(m))
 
 	for _, name := range sortedKeys {
 
@@ -155,7 +170,7 @@ func marshal[T any, PT Unpackable[T]](name string, data []PT, opts ...func(*Opti
 		opt(&o)
 	}
 
-	m := map[string]PT{}
+	m := map[string]any{}
 
 	for _, d := range data {
 		m[d.GetName()] = d
@@ -163,7 +178,8 @@ func marshal[T any, PT Unpackable[T]](name string, data []PT, opts ...func(*Opti
 
 	switch o.structType {
 	case namedItemMap:
-		mm := map[string]map[string]PT{}
+		mm := acquireMap2Map()
+		defer releaseMap2Map(mm)
 		mm[name] = m
 		return json.Marshal(mm)
 	case anonymousItemMap:
