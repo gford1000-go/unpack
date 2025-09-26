@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"slices"
 	"sort"
 )
 
@@ -94,6 +95,7 @@ func unmarshal[M, T any, PT Unpackable[T]](metaName, dataName string, b []byte, 
 	o := Options[T, PT]{
 		structType: namedItemMap,
 		NewFn:      newT[T, PT],
+		Ordering:   Ascending,
 	}
 	for _, opt := range opts {
 		opt(&o)
@@ -163,6 +165,9 @@ func unmarshal[M, T any, PT Unpackable[T]](metaName, dataName string, b []byte, 
 		sortedKeys = append(sortedKeys, k)
 	}
 	sort.Sort(sortedKeys)
+	if o.Ordering == Descending {
+		slices.Reverse(sortedKeys)
+	}
 
 	var ptData = make([]PT, 0, len(mData))
 
@@ -238,6 +243,8 @@ type StructuredData[M, T any, PT Unpackable[T]] struct {
 	Data []PT
 }
 
+// UnmarshalStructuredData decodes a JSON map of maps into a StructuredData instance, using the
+// names to identify the metadata and data objects
 func UnmarshalStructuredData[M, T any, PT Unpackable[T]](metaName, dataName string, b []byte, opts ...func(*Options[T, PT])) (*StructuredData[M, T, PT], error) {
 	return unmarshal[M](metaName, dataName, b, append(opts, withStructType[T, PT](structuredMap))...)
 }

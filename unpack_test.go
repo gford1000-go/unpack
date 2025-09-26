@@ -342,3 +342,40 @@ func BenchmarkUnmarshalStructuredData(b *testing.B) {
 		}
 	}
 }
+
+func BenchmarkUnmarshalStructuredData_descending(b *testing.B) {
+
+	jsonPath := filepath.Join("example_data", "ibm_history.json")
+	data, err := os.ReadFile(jsonPath)
+	if err != nil {
+		b.Fatalf("Failed to read JSON file: %v", err)
+	}
+
+	metaName := "Meta Data"
+	dataName := "Time Series (Daily)"
+
+	b.ReportAllocs()
+	b.ResetTimer()
+
+	for b.Loop() {
+		sd, err := UnmarshalStructuredData[stockHistoryMeta](metaName, dataName, data, WithOrdering[stockHistoryElement](Descending))
+		if err != nil {
+			b.Fatalf("unexpected UnmarshalWithName error: %v", err)
+		}
+		if sd.Meta == nil {
+			b.Fatalf("unexpectedly received no metadata")
+		}
+		if len(sd.Data) == 0 {
+			b.Fatalf("unexpected unmarshal result")
+		}
+		if sd.Meta.Symbol != "IBM" {
+			b.Fatalf("mismatch in Symbol")
+		}
+		if sd.Data[0].Date != "2025-08-19" {
+			b.Fatalf("mismatch in expected last data element: %s", sd.Data[0].Date)
+		}
+		if sd.Data[len(sd.Data)-1].Date != "1999-11-01" {
+			b.Fatalf("mismatch in expected first data element: %s", sd.Data[len(sd.Data)-1].Date)
+		}
+	}
+}
