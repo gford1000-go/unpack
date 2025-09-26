@@ -222,3 +222,23 @@ func TestMarshalWithName(t *testing.T) {
 		t.Fatalf("mismatch: expected: %s, got: %s", string(data), string(data1))
 	}
 }
+
+func BenchmarkUnmarshalWithName(b *testing.B) {
+
+	name := "countries"
+	data := []byte(fmt.Sprintf(`{"%s":{"UK":{"Name":"UK","capital":"London","population":{"London":10000000}},"US":{"Name":"US","capital":"Washington DC","population":{"Washington DC":95000000}}}}`, name))
+
+	b.ReportAllocs()
+	b.ResetTimer()
+
+	for b.Loop() {
+		objs, err := UnmarshalWithName[myCountryDetails](name, data)
+		if err != nil {
+			b.Fatalf("unexpected Unmarshal error: %v", err)
+		}
+		if len(objs) != 2 {
+			b.Fatalf("unexpected unmarshal result")
+		}
+	}
+
+}

@@ -113,18 +113,18 @@ func unmarshal[T any, PT Unpackable[T]](name string, b []byte, opts ...func(*Opt
 	var ret = []PT{}
 
 	for _, name := range sortedKeys {
-		item := m[name]
-		b, err := json.Marshal(item) // Not ideal obvs ...
-		if err != nil {
-			return nil, err
+
+		r := o.NewFn()
+		if err := mapToStruct(m[name].(map[string]any), r); err != nil {
+
+			// mapToStruct could have edge case failures, in which case
+			// use json roundtrip to try to decode
+			r = o.NewFn()
+			if err := roundTripToStruct(m[name], r); err != nil {
+				return nil, err
+			}
 		}
 
-		// ... but easiest way to obtain the byte slice
-		// to parse into actual structure
-		r := o.NewFn()
-		if err := json.Unmarshal(b, r); err != nil {
-			return nil, err
-		}
 		r.SetName(name)
 
 		ret = append(ret, r)
